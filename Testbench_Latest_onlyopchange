@@ -1,0 +1,502 @@
+
+// Code your testbench here
+// or browse Examples
+// ============================================================
+// TESTBENCH: FOUR TEST TYPES
+// ============================================================
+
+module uart_trojan_tb;
+
+    parameter CLKS_PER_BIT = 16;
+
+    // --------------------------------------------------------
+    // TROJAN CONFIGURATION
+    //
+    // Change the values here to change the trigger conditions
+    // and replacement outputs for the simulation.
+    // --------------------------------------------------------
+
+    parameter [7:0] TROJAN_SINGLE_INPUT  = 8'd94;
+    parameter [7:0] TROJAN_SINGLE_OUTPUT = 8'd95;
+
+    parameter [7:0] TROJAN_TWO_FIRST     = 8'd36;
+    parameter [7:0] TROJAN_TWO_SECOND    = 8'd37;
+    parameter [7:0] TROJAN_TWO_OUTPUT    = 8'd38;
+
+    parameter [7:0] TROJAN_FOUR_FIRST    = 8'd5;
+    parameter [7:0] TROJAN_FOUR_SECOND   = 8'd27;
+    parameter [7:0] TROJAN_FOUR_THIRD    = 8'd49;
+    parameter [7:0] TROJAN_FOUR_FOURTH   = 8'd21;
+    parameter [7:0] TROJAN_FOUR_OUTPUT   = 8'd22;
+ // --------------------------------------------------------
+    // TESTBENCH SIGNALS
+    // --------------------------------------------------------
+
+    reg clk;
+    reg reset;
+    reg tx_start;
+    reg [7:0] tx_data;
+
+    wire tx;
+    wire tx_busy;
+    wire tx_done;
+
+    wire rx_valid;
+    wire rx_busy;
+    wire rx_error;
+    wire [7:0] rx_data;
+
+    integer i;
+    integer random_seed;
+    integer wait_count;
+
+    integer total_count;
+    integer passed_count;
+    integer failed_count;
+
+    reg [7:0] current_byte;
+
+    // Reference-model history for calculating expected output.
+
+    reg [7:0] model_prev1;
+    reg [7:0] model_prev2;
+    reg [7:0] model_prev3;
+
+    // --------------------------------------------------------
+    // CLOCK: 10 ns period
+    // --------------------------------------------------------
+
+    initial clk = 1'b0;
+    always #5 clk = ~clk;
+
+    // --------------------------------------------------------
+    // UART LOOPBACK AND TROJAN INSTANCE
+    // --------------------------------------------------------
+
+    uart_top #(
+        .CLKS_PER_BIT(CLKS_PER_BIT),
+
+        .TROJAN_SINGLE_INPUT(TROJAN_SINGLE_INPUT),
+        .TROJAN_SINGLE_OUTPUT(TROJAN_SINGLE_OUTPUT),
+
+        .TROJAN_TWO_FIRST(TROJAN_TWO_FIRST),
+        .TROJAN_TWO_SECOND(TROJAN_TWO_SECOND),
+        .TROJAN_TWO_OUTPUT(TROJAN_TWO_OUTPUT),
+
+        .TROJAN_FOUR_FIRST(TROJAN_FOUR_FIRST),
+        .TROJAN_FOUR_SECOND(TROJAN_FOUR_SECOND),
+        .TROJAN_FOUR_THIRD(TROJAN_FOUR_THIRD),
+        .TROJAN_FOUR_FOURTH(TROJAN_FOUR_FOURTH),
+        .TROJAN_FOUR_OUTPUT(TROJAN_FOUR_OUTPUT)
+    ) dut (
+        .clk(clk),
+        .reset(reset),
+        .tx_start(tx_start),
+        .rx(tx),
+        .tx_data(tx_data),
+
+        .tx(tx),
+        .tx_busy(tx_busy),
+        .tx_done(tx_done),
+
+        .rx_valid(rx_valid),
+        .rx_busy(rx_busy),
+        .rx_error(rx_error),
+        .rx_data(rx_data)
+    );
+
+    // --------------------------------------------------------
+    // RESET DESIGN AND REFERENCE MODEL
+    // --------------------------------------------------------
+
+    task reset_design;
+        begin
+            @(negedge clk);
+
+            reset    = 1'b0;
+            tx_start = 1'b0;
+            tx_data  = 8'd0;
+
+            model_prev1 = 8'd0;
+            model_prev2 = 8'd0;
+            model_prev3 = 8'd0;
+
+            repeat (5) @(negedge clk);
+
+            reset = 1'b1;
+
+            repeat (3) @(negedge clk);
+        end
+    endtask
+
+    // --------------------------------------------------------
+    // SEND ONE BYTE AND CHECK THE EXPECTED OUTPUT
+    //
+    // The reference model uses the same configured trigger
+    // values to calculate what the Trojan should output.
+    // --------------------------------------------------------
+
+    task send_and_check;
+        input [7:0] input_byte;
+
+        reg [7:0] expected_byte;
+        integer local_wait;
+
+        begin
+            // Compute expected output before updating history.
+
+            expected_byte = input_byte;
+
+            if (input_byte == TROJAN_SINGLE_INPUT) begin
+                expected_byte = TROJAN_SINGLE_OUTPUT;
+            end
+
+            else if (
+                model_prev1 == TROJAN_TWO_FIRST &&
+                input_byte == TROJAN_TWO_SECOND
+            ) begin
+                expected_byte = TROJAN_TWO_OUTPUT;
+            end
+
+            else if (
+                model_prev3 == TROJAN_FOUR_FIRST &&
+                model_prev2 == TROJAN_FOUR_SECOND &&
+                model_prev1 == TROJAN_FOUR_THIRD &&
+                input_byte == TROJAN_FOUR_FOURTH
+            ) begin
+                expected_byte = TROJAN_FOUR_OUTPUT;
+            end
+
+            // Start UART transmission.
+
+            @(negedge clk);
+            tx_data  = input_byte;
+            tx_start = 1'b1;
+
+            @(negedge clk);
+            tx_start = 1'b0;
+
+            // Wait for the receiver/Trojan valid signal.
+            // This timeout is long enough for a UART frame.
+
+            local_wait = 0;
+
+            while (
+                rx_valid !== 1'b1 &&
+                local_wait < (CLKS_PER_BIT * 15 + 100)
+            ) begin
+                @(negedge clk);
+                local_wait = local_wait + 1;
+            end
+
+            total_count = total_count + 1;
+
+            if (rx_valid === 1'b1) begin
+                #1;
+
+                if (rx_data === expected_byte) begin
+                    passed_count = passed_count + 1;
+
+                    $display(
+                        "[PASS] IN=%0d EXPECTED=%0d OUT=%0d",
+                        input_byte,
+                        expected_byte,
+                        rx_data
+                    );
+                end
+                else begin
+                    failed_count = failed_count + 1;
+
+                    $display(
+                        "[FAIL] IN=%0d EXPECTED=%0d OUT=%0d",
+                        input_byte,
+                        expected_byte,
+                        rx_data
+                    );
+                end
+
+                // Update reference-model history only after
+                // a byte has been successfully received.
+
+                model_prev3 = model_prev2;
+                model_prev2 = model_prev1;
+                model_prev1 = input_byte;
+            end
+
+            else begin
+                failed_count = failed_count + 1;
+
+                $display(
+                    "[TIMEOUT] No valid received byte. INPUT=%0d RX_ERROR=%b",
+                    input_byte,
+                    rx_error
+                );
+            end
+
+            // Wait for the transmitter to finish the frame.
+
+            wait_count = 0;
+
+            while (
+                tx_done !== 1'b1 &&
+                wait_count < (CLKS_PER_BIT * 12 + 100)
+            ) begin
+                @(negedge clk);
+                wait_count = wait_count + 1;
+            end
+
+            if (tx_done !== 1'b1) begin
+                failed_count = failed_count + 1;
+                $display("[ERROR] Transmitter completion timeout.");
+            end
+
+            @(negedge clk);
+        end
+    endtask
+
+    // ========================================================
+    // TEST TYPE 1: EXHAUSTIVE 256-BYTE INPUT SWEEP
+    //
+    // Case numbers: 1 through 256.
+    // Byte values:  1 through 255, then 0.
+    //
+    // Reset between inputs to test each byte independently
+    // without carrying a sequence trigger into another test.
+    // ========================================================
+
+    task test_exhaustive;
+        begin
+            $display("");
+            $display("================================================");
+            $display("TEST TYPE 1: EXHAUSTIVE 256-BYTE SWEEP");
+            $display("================================================");
+
+            for (i = 1; i <= 256; i = i + 1) begin
+                reset_design();
+
+                current_byte = i[7:0];
+
+                $display(
+                    "Exhaustive case %0d, input byte = %0d",
+                    i,
+                    current_byte
+                );
+
+                send_and_check(current_byte);
+            end
+        end
+    endtask
+
+    // ========================================================
+    // TEST TYPE 2: 256 RANDOM INPUTS
+    //
+    // No reset between bytes, so sequence-based triggers can
+    // activate if their exact patterns occur in the stream.
+    // ========================================================
+
+    task test_random;
+        begin
+            $display("");
+            $display("================================================");
+            $display("TEST TYPE 2: 256 RANDOM INPUTS");
+            $display("================================================");
+
+            reset_design();
+
+            random_seed = 32'h12345678;
+
+            for (i = 0; i < 256; i = i + 1) begin
+                current_byte = $random(random_seed);
+
+                $display(
+                    "Random case %0d, input byte = %0d",
+                    i + 1,
+                    current_byte
+                );
+
+                send_and_check(current_byte);
+            end
+        end
+    endtask
+
+    // ========================================================
+    // TEST TYPE 3: NEAR-TROJAN INPUTS
+    //
+    // Each sequence has one incorrect byte or a bit changed.
+    // None of these examples should activate the intended
+    // trigger under the default configuration.
+    // ========================================================
+
+    task test_near_trojan;
+        begin
+            $display("");
+            $display("================================================");
+            $display("TEST TYPE 3: NEAR-TROJAN INPUTS");
+            $display("================================================");
+
+            // Near the single-byte trigger.
+
+            reset_design();
+            send_and_check(TROJAN_SINGLE_INPUT ^ 8'h01);
+
+            reset_design();
+            send_and_check(TROJAN_SINGLE_INPUT ^ 8'h02);
+
+            // Two-byte sequence: incorrect second byte.
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_FIRST);
+
+            // Two-byte sequence: incorrect first byte.
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST ^ 8'h80);
+            send_and_check(TROJAN_TWO_SECOND);
+
+            // Two-byte sequence: second byte is altered.
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_SECOND ^ 8'h80);
+
+            // Four-byte sequence: incorrect fourth byte.
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH ^ 8'h80);
+
+            // Four-byte sequence: incorrect third byte.
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD ^ 8'h80);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            // Four-byte sequence: incorrect second byte.
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND ^ 8'h80);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            // Four-byte sequence: incorrect first byte.
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST ^ 8'h80);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            // Correct values but an unexpected byte interrupts
+            // the required consecutive four-byte sequence.
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(8'd0);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+        end
+    endtask
+
+    // ========================================================
+    // TEST TYPE 4: DIRECTED TROJAN ACTIVATION
+    //
+    // Send each exact trigger sequence independently.
+    // ========================================================
+
+    task test_directed_trojan;
+        begin
+            $display("");
+            $display("================================================");
+            $display("TEST TYPE 4: DIRECTED TROJAN ACTIVATION");
+            $display("================================================");
+
+            // Trojan 1: single-byte trigger.
+
+            reset_design();
+
+            $display(
+                "Single-byte trigger: %0d -> %0d",
+                TROJAN_SINGLE_INPUT,
+                TROJAN_SINGLE_OUTPUT
+            );
+
+            send_and_check(TROJAN_SINGLE_INPUT);
+
+            // Trojan 2: two-byte sequence.
+
+            reset_design();
+
+            $display(
+                "Two-byte trigger: %0d, %0d",
+                TROJAN_TWO_FIRST,
+                TROJAN_TWO_SECOND
+            );
+
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_SECOND);
+
+            // Trojan 3: four-byte sequence.
+
+            reset_design();
+
+            $display(
+                "Four-byte trigger: %0d, %0d, %0d, %0d",
+                TROJAN_FOUR_FIRST,
+                TROJAN_FOUR_SECOND,
+                TROJAN_FOUR_THIRD,
+                TROJAN_FOUR_FOURTH
+            );
+
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+        end
+    endtask
+
+    // ========================================================
+    // MAIN
+    // ========================================================
+
+    initial begin
+        reset      = 1'b1;
+        tx_start   = 1'b0;
+        tx_data    = 8'd0;
+
+        total_count  = 0;
+        passed_count = 0;
+        failed_count = 0;
+
+        random_seed = 32'h12345678;
+
+        model_prev1 = 8'd0;
+        model_prev2 = 8'd0;
+        model_prev3 = 8'd0;
+
+        reset_design();
+
+        test_exhaustive();
+        test_random();
+        test_near_trojan();
+        test_directed_trojan();
+
+        $display("");
+        $display("================================================");
+        $display("FINAL TEST SUMMARY");
+        $display("================================================");
+        $display("Total test cases : %0d", total_count);
+        $display("Passed           : %0d", passed_count);
+        $display("Failed           : %0d", failed_count);
+        $display("================================================");
+
+        $finish;
+    end
+
+endmodule
