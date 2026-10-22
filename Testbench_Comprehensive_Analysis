@@ -1,0 +1,384 @@
+`timescale 1ns/1ps
+
+module uart_trojan_tb;
+
+    parameter CLKS_PER_BIT = 16;
+    parameter [7:0] TROJAN_SINGLE_INPUT  = 8'd94;
+    parameter [7:0] TROJAN_SINGLE_OUTPUT = 8'd95;
+    parameter [7:0] TROJAN_TWO_FIRST     = 8'd36;
+    parameter [7:0] TROJAN_TWO_SECOND    = 8'd37;
+    parameter [7:0] TROJAN_TWO_OUTPUT    = 8'd38;
+    parameter [7:0] TROJAN_FOUR_FIRST    = 8'd5;
+    parameter [7:0] TROJAN_FOUR_SECOND   = 8'd27;
+    parameter [7:0] TROJAN_FOUR_THIRD    = 8'd49;
+    parameter [7:0] TROJAN_FOUR_FOURTH   = 8'd21;
+    parameter [7:0] TROJAN_FOUR_OUTPUT   = 8'd22;
+    parameter integer MAX_FAILURE_DETAILS = 40;
+  
+    reg clk,reset,tx_start;
+    reg [7:0] tx_data;
+    wire tx,tx_busy,tx_done,rx_valid,rx_busy,rx_error;
+    wire [7:0] rx_data;
+
+    integer i,random1,v_mode,total,passed,failed;
+    integer rx_timeout,tx_timeout,rx_error_count,fail_details_printed;
+    integer total_before_sec, pass_before_sec,fail_before_sec;
+    integer section_rx_timer,section_tx_timer,errors_in_section;
+
+    integer section_bytes [0:3];
+    integer section_passed [0:3];
+    integer section_failed [0:3];
+    integer section_rx_timeouts [0:3];
+    integer section_tx_timeouts [0:3];
+    integer section_rx_errors [0:3];
+    integer index;
+    real section_pass_percent;
+
+    reg [7:0] current_byte;
+
+    initial clk = 1'b0;
+    always #5 clk = ~clk;
+
+    uart_top #(
+        .CLKS_PER_BIT(CLKS_PER_BIT),
+        .TROJAN_SINGLE_INPUT(TROJAN_SINGLE_INPUT),
+        .TROJAN_SINGLE_OUTPUT(TROJAN_SINGLE_OUTPUT),
+        .TROJAN_TWO_FIRST(TROJAN_TWO_FIRST),
+        .TROJAN_TWO_SECOND(TROJAN_TWO_SECOND),
+        .TROJAN_TWO_OUTPUT(TROJAN_TWO_OUTPUT),
+        .TROJAN_FOUR_FIRST(TROJAN_FOUR_FIRST),
+        .TROJAN_FOUR_SECOND(TROJAN_FOUR_SECOND),
+        .TROJAN_FOUR_THIRD(TROJAN_FOUR_THIRD),
+        .TROJAN_FOUR_FOURTH(TROJAN_FOUR_FOURTH),
+        .TROJAN_FOUR_OUTPUT(TROJAN_FOUR_OUTPUT)
+    ) dut (
+        .clk(clk),
+        .reset(reset),
+        .tx_start(tx_start),
+        .rx(tx),
+        .tx_data(tx_data),
+        .tx(tx),
+        .tx_busy(tx_busy),
+        .tx_done(tx_done),
+        .rx_valid(rx_valid),
+        .rx_busy(rx_busy),
+        .rx_error(rx_error),
+        .rx_data(rx_data)
+    );
+
+    task reset_design;
+        begin
+            @(negedge clk);
+            reset = 1'b0;
+            tx_start = 1'b0;
+            tx_data = 8'd0;
+
+            repeat (5) @(negedge clk);
+            reset = 1'b1;
+            repeat (3) @(negedge clk);
+        end
+    endtask
+
+    task mark_section_start;
+        begin
+            total_before_sec = total;
+            pass_before_sec = passed;
+            fail_before_sec = failed;
+            section_rx_timer = rx_timeout;
+            section_tx_timer = tx_timeout;
+            errors_in_section = rx_error_count;
+        end
+    endtask
+
+    task record_section;
+        input integer idx;
+        begin
+            section_bytes[idx] = total - total_before_sec;
+            section_passed[idx] = passed - pass_before_sec;
+            section_failed[idx] = failed - fail_before_sec;
+            section_rx_timeouts[idx] = rx_timeout - section_rx_timer;
+            section_tx_timeouts[idx] = tx_timeout - section_tx_timer;
+            section_rx_errors[idx] = rx_error_count - errors_in_section;
+        end
+    endtask
+
+    task report_all_summaries;
+        begin
+            $display("ANALYSIS SUMMARY:\n");
+
+            for (index = 0; index < 4; index = index + 1) 
+            begin
+            section_pass_percent = 0.0;
+                if (section_bytes[index] > 0)
+                begin
+                section_pass_percent = 100.0 * section_passed[index] / section_bytes[index];
+                end
+            case (index)
+                0: $display("TEST TYPE 1: ISOLATED EXHAUSTIVE INPUTS");
+                1: $display("TEST TYPE 2: 256 PSEUDO-RANDOM BYTES");
+                2: $display("TEST TYPE 3: NEAR-TROJAN SEQUENCES");
+                3: $display("TEST TYPE 4: DIRECTED TROJAN ACTIVATION");
+                endcase
+
+                $display("  Byte transactions : %0d", section_bytes[index]);
+                $display("  Passed            : %0d", section_passed[index]);
+                $display("  Failed            : %0d", section_failed[index]);
+                $display("  Pass percentage   : %0.2f%%", section_pass_percent);
+                $display("  RX timeouts       : %0d", section_rx_timeouts[index]);
+                $display("  TX timeouts       : %0d", section_tx_timeouts[index]);
+                $display("  RX error pulses   : %0d", section_rx_errors[index]);
+        end
+        end
+        endtask
+
+    task send_and_check;
+        input [7:0] input_byte;
+        reg [7:0] expected_byte;
+        reg [7:0] observed_byte;
+        reg seen_rx;
+        reg seen_tx_done;
+        integer local_wait;
+        integer timeout_limit;
+        begin
+            expected_byte = input_byte;
+            observed_byte = 8'hXX;
+            seen_rx = 1'b0;
+            seen_tx_done = 1'b0;
+            //Input==output if not then trojan
+
+            @(negedge clk);
+            tx_data = input_byte;
+            tx_start = 1'b1;
+            @(negedge clk); // These two negedge are in series but if they
+            // were always they would be in parallel compare to threads in cpp not functions
+            tx_start = 1'b0;
+
+
+
+
+            local_wait = 0;
+            timeout_limit = (CLKS_PER_BIT * 15) + 100;
+
+            // observe RX-valid and TX-done sidebyside so neither pulse is missed
+            // because pulse can be super short and might end in between 
+            while (((seen_rx == 1'b0) || (seen_tx_done == 1'b0)) &&(local_wait < timeout_limit)) 
+            begin
+                @(negedge clk);
+                if ((rx_valid === 1'b1) && (seen_rx == 1'b0)) 
+                begin
+                    seen_rx = 1'b1;
+                observed_byte = rx_data;
+                end
+                if (tx_done === 1'b1)
+                seen_tx_done = 1'b1;
+                if (rx_error === 1'b1)
+                rx_error_count = rx_error_count + 1; // be careful in rx_error and rx_error_count first is wire second is int 
+
+                local_wait = local_wait + 1;
+            end
+
+            total = total + 1;
+            if (seen_rx == 1'b0)
+                    rx_timeout = rx_timeout + 1;
+
+            if (seen_tx_done == 1'b0)
+                 tx_timeout = tx_timeout + 1;
+
+            if (seen_rx && seen_tx_done && (observed_byte === expected_byte)) begin
+                passed = passed + 1;
+                if (v_mode)
+                $display("[PASS] IN=%0d EXPECTED=%0d OUT=%0d", input_byte, expected_byte, observed_byte);
+            end
+            else begin
+                failed = failed + 1;
+                if (fail_details_printed < MAX_FAILURE_DETAILS) begin // too many failures:
+                // wrong code instead of trojan
+                    if (seen_rx == 1'b0)
+                    begin
+                    $display("[FAIL/RX_TIMEOUT] IN=%0d EXPECTED=%0d RX_ERROR=%b TX_DONE=%b", input_byte, expected_byte, rx_error, seen_tx_done);
+                    end
+                    else if (seen_tx_done == 1'b0) 
+                    begin
+              $display("[FAIL/TX_TIMEOUT] IN=%0d EXPECTED=%0d OUT=%0d", input_byte, expected_byte, observed_byte);
+                    end
+                    else 
+                    begin  $display("[FAIL/DATA_MISMATCH] IN=%0d EXPECTED=%0d OUT=%0d", input_byte, expected_byte, observed_byte);
+                    end
+                    fail_details_printed = fail_details_printed + 1;
+                end
+            end
+
+
+            @(negedge clk);
+        end
+endtask
+
+    task test_exhaustive_isolated;
+        begin
+            $display("\nTEST TYPE 1: EXHAUSTIVE 256 BYTE VALUES");
+            mark_section_start();
+            v_mode = 1;
+
+            for (i = 0; i < 256; i = i + 1) 
+            begin
+                reset_design();
+            current_byte = i[7:0];
+            send_and_check(current_byte);
+        end
+            v_mode = 0;
+            record_section(0); // 0 not 1 0 based indexing 
+        end
+    endtask
+
+    task test_random;
+        begin
+            $display("\nTEST TYPE 2: 256 PSEUDO-RANDOM BYTE INPUTS IN ONE STREAM");
+            mark_section_start();
+            reset_design();
+            v_mode = 0;
+            random1 = 32'h12345678;
+            for (i = 0; i < 256; i = i + 1) 
+            
+                begin
+            current_byte = $random(random1);
+                send_and_check(current_byte);
+            end
+              record_section(1);
+        end
+    endtask
+
+    task test_near_trojan;
+        begin
+            $display("\nTEST TYPE 3: NEAR-TROJAN ");
+            mark_section_start(); // taking values initially
+            v_mode = 1;
+            reset_design();
+            send_and_check(TROJAN_SINGLE_INPUT ^ 8'h01); // xoring with bits
+            reset_design();
+            send_and_check(TROJAN_SINGLE_INPUT ^ 8'h02);
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_FIRST);
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST ^ 8'h80);
+            send_and_check(TROJAN_TWO_SECOND);
+
+            reset_design();
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_SECOND ^ 8'h80);
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH ^ 8'h80);
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD ^ 8'h80);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND ^ 8'h80);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST ^ 8'h80);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+            reset_design();
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(8'd0);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+        v_mode = 0;
+        record_section(2);
+        end
+    endtask
+
+    task test_directed_trojan;
+        begin
+            $display("\nTEST TYPE 4: DIRECTED ACTIVATION OF EACH OUTPUT-MODIFYING TROJAN");
+            mark_section_start();
+            v_mode = 1;
+            reset_design();
+            $display("Single-byte trigger: %0d -> %0d", TROJAN_SINGLE_INPUT, TROJAN_SINGLE_OUTPUT);
+            send_and_check(TROJAN_SINGLE_INPUT);
+            reset_design();
+            $display("Two-byte trigger: %0d, %0d -> replacement %0d",
+                         TROJAN_TWO_FIRST, TROJAN_TWO_SECOND, TROJAN_TWO_OUTPUT);
+            send_and_check(TROJAN_TWO_FIRST);
+            send_and_check(TROJAN_TWO_SECOND);
+            reset_design();
+            $display("Four-byte trigger: %0d, %0d, %0d, %0d -> replacement %0d",
+                     TROJAN_FOUR_FIRST, TROJAN_FOUR_SECOND,
+                     TROJAN_FOUR_THIRD, TROJAN_FOUR_FOURTH,
+                     TROJAN_FOUR_OUTPUT);
+            send_and_check(TROJAN_FOUR_FIRST);
+            send_and_check(TROJAN_FOUR_SECOND);
+            send_and_check(TROJAN_FOUR_THIRD);
+            send_and_check(TROJAN_FOUR_FOURTH);
+
+
+
+            v_mode = 0;
+            record_section(3);
+        end
+    endtask
+
+    initial begin
+        reset = 1'b1;
+        tx_start = 1'b0;
+        tx_data = 8'd0;
+
+        total = 0;
+        passed = 0;
+        failed = 0;
+        rx_timeout = 0;
+        tx_timeout = 0;
+        rx_error_count = 0;
+        fail_details_printed = 0;
+        v_mode = 0;
+        random1 = 32'h12345678;
+
+        for (index = 0; index < 4; index = index + 1) begin
+            section_bytes[index] = 0;
+            section_passed[index] = 0;
+            section_failed[index] = 0;
+            section_rx_timeouts[index] = 0;
+            section_tx_timeouts[index] = 0;
+            section_rx_errors[index] = 0;
+        end
+
+        test_exhaustive_isolated();
+        test_random();
+        test_near_trojan();
+        test_directed_trojan();
+
+        report_all_summaries();
+
+       
+        $display("FINAL OVERALL TEST SUMMARY");
+        $display("Total byte transactions : %0d", total);
+        $display("Passed                  : %0d", passed);
+        $display("Failed                  : %0d", failed);
+        $display("RX timeouts             : %0d", rx_timeout);
+        $display("TX timeouts             : %0d", tx_timeout);
+        $display("RX error pulses         : %0d", rx_error_count);
+        $display("Failure details shown   : %0d (limit %0d)", fail_details_printed, MAX_FAILURE_DETAILS);
+        if (failed == 0 && rx_timeout == 0 && tx_timeout == 0 && rx_error_count == 0)
+            $display("OVERALL RESULT: PASS - no mismatches, timeouts, or RX error pulses detected.");
+        else
+            $display("OVERALL RESULT: FAIL - inspect the per-section summaries and failure messages.");
+        $finish;
+        end
+
+endmodule
