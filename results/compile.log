@@ -1,0 +1,5 @@
+COMMAND: /usr/bin/iverilog -g2012 -I/home/vboxuser/uart-trojan-lab/results -s trojan_rarity_tb -o /home/vboxuser/uart-trojan-lab/results/trojan_rarity_test.vvp /home/vboxuser/uart-trojan-lab/uart_trojan_fsm.sv /home/vboxuser/uart-trojan-lab/clean_byte_model.sv /home/vboxuser/uart-trojan-lab/trojan_rarity_tb.sv
+
+STDOUT:
+
+STDERR:

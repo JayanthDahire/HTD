@@ -1,0 +1,15 @@
+Rarity-guided UART Trojan detection results
+Candidate input bytes: 13
+Exact source-derived multi-byte sequences: 3
+DETECTED length=1 sequence=[34] effects=DATA/VALID 
+Stage 1 tests: 256; new findings: 1
+DETECTED length=2 sequence=[36, 37] effects=DATA/VALID 
+Stage 2 tests: 169; new findings: 1; broad enumeration=1
+DETECTED length=3 sequence=[170, 187, 204] effects=SIDE_EFFECT 
+Stage 3 tests: 2197; new findings: 1; broad enumeration=1
+DETECTED length=4 sequence=[64, 27, 49, 29] effects=DATA/VALID 
+Stage 4 tests: 28561; new findings: 1; broad enumeration=1
+
+Total candidate tests: 31183
+Unique findings: 4
+Important: no finding does not prove the design is Trojan-free.

@@ -1,0 +1,37 @@
+ELAPSED_SECONDS: 1.216
+
+STDOUT:
+====================================================
+RARITY-GUIDED UART TROJAN TESTING
+Candidate input bytes: 13
+Exact source-derived multi-byte sequences: 3
+Maximum search length: 4
+A specific n-byte sequence has P=(1/256)^n per fixed window under uniform IID bytes.
+Stage 1 tests suspicious candidate bytes; later stages use rarity-threshold-guided search.
+====================================================
+
+--- STAGE 1: exhaustive single-byte search (256 values) ---
+DETECTED length=1 sequence=[34] effects=DATA/VALID 
+Stage 1 tests: 256; new findings: 1
+
+--- STAGE 2 ---
+DETECTED length=2 sequence=[36, 37] effects=DATA/VALID 
+Rarity threshold allows candidate-alphabet enumeration: 169 combinations
+Stage 2 tests: 169; new findings: 1
+
+--- STAGE 3 ---
+DETECTED length=3 sequence=[170, 187, 204] effects=SIDE_EFFECT 
+Rarity threshold allows candidate-alphabet enumeration: 2197 combinations
+Stage 3 tests: 2197; new findings: 1
+
+--- STAGE 4 ---
+Rarity threshold allows candidate-alphabet enumeration: 28561 combinations
+DETECTED length=4 sequence=[64, 27, 49, 29] effects=DATA/VALID 
+Stage 4 tests: 28561; new findings: 1
+
+====================================================
+FINISHED: 31183 candidate tests, 4 unique findings
+Results: detection_summary.txt
+/home/vboxuser/uart-trojan-lab/trojan_rarity_tb.sv:357: $finish called at 3364076000 (1ps)
+
+STDERR:

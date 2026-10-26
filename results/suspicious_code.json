@@ -1,0 +1,566 @@
+[
+  {
+    "line": "parameter [7:0] TROJAN_SINGLE_INPUT = 8'd34,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_SINGLE_OUTPUT = 8'd95,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_TWO_FIRST = 8'd36,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_TWO_SECOND = 8'd37,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_TWO_OUTPUT = 8'd38,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_FIRST = 8'd64,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_SECOND = 8'd27,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_THIRD = 8'd49,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_FOURTH = 8'd29,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_OUTPUT = 8'd22",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "wire single_hit = rx_valid_in && (single_state == S_IDLE) &&",
+    "reasons": "comparison or assignment; possible observable data/control path",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "(rx_data_in == TROJAN_SINGLE_INPUT);",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "wire two_hit = rx_valid_in && (two_state == T_GOT_FIRST) &&",
+    "reasons": "comparison or assignment; possible observable data/control path",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "(rx_data_in == TROJAN_TWO_SECOND);",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "wire four_hit = rx_valid_in && (four_state == F_GOT_THIRD) &&",
+    "reasons": "comparison or assignment; possible observable data/control path",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "(rx_data_in == TROJAN_FOUR_FOURTH);",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "single_state <= S_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "two_state <= T_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "four_state <= F_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_valid_in) begin",
+    "reasons": "conditional/control flow; possible observable data/control path",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "if (single_hit)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "rx_data_out <= TROJAN_SINGLE_OUTPUT;",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "else if (two_hit)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "rx_data_out <= TROJAN_TWO_OUTPUT;",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "else if (four_hit)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "rx_data_out <= TROJAN_FOUR_OUTPUT;",
+    "reasons": "comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 6,
+    "priority": "HIGH"
+  },
+  {
+    "line": "case (single_state)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "single_state <= S_ACTIVE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "S_ACTIVE: single_state <= S_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "default: single_state <= S_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (two_state == T_ACTIVE) begin",
+    "reasons": "conditional/control flow; comparison or assignment",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "if (rx_valid_in && (rx_data_in == TROJAN_TWO_FIRST))",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "two_state <= T_GOT_FIRST;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "end else if (rx_valid_in) begin",
+    "reasons": "conditional/control flow; possible observable data/control path",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "case (two_state)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_TWO_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_TWO_SECOND)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "two_state <= T_ACTIVE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "else if (rx_data_in == TROJAN_TWO_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "default: two_state <= T_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (four_state == F_ACTIVE) begin",
+    "reasons": "conditional/control flow; comparison or assignment",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "if (rx_valid_in && (rx_data_in == TROJAN_FOUR_FIRST))",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "four_state <= F_GOT_FIRST;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "case (four_state)",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_FOUR_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_FOUR_SECOND)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "four_state <= F_GOT_SECOND;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "else if (rx_data_in == TROJAN_FOUR_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_FOUR_THIRD)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "four_state <= F_GOT_THIRD;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_data_in == TROJAN_FOUR_FOURTH)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "four_state <= F_ACTIVE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "default: four_state <= F_IDLE;",
+    "reasons": "comparison or assignment",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "module side_effect_trojan #(",
+    "reasons": "possible observable data/control path",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TRIGGER_FIRST = 8'hAA,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TRIGGER_SECOND = 8'hBB,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TRIGGER_THIRD = 8'hCC",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "input [7:0] rx_data_in,",
+    "reasons": "possible observable data/control path",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "input rx_valid_in,",
+    "reasons": "possible observable data/control path",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "output reg trojan_side_effect",
+    "reasons": "possible observable data/control path; trigger-related naming",
+    "score": 5,
+    "priority": "HIGH"
+  },
+  {
+    "line": "GOT_FIRST = 2'd1,",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "GOT_SECOND = 2'd2,",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "ACTIVE = 2'd3;",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "reg [1:0] state;",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (!reset) begin",
+    "reasons": "conditional/control flow",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "state <= IDLE;",
+    "reasons": "comparison or assignment; state/history/counter reference",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "trojan_side_effect <= 1'b0;",
+    "reasons": "comparison or assignment; trigger-related naming",
+    "score": 4,
+    "priority": "HIGH"
+  },
+  {
+    "line": "case (state)",
+    "reasons": "conditional/control flow; state/history/counter reference",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "if (rx_data_in == TRIGGER_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "state <= GOT_FIRST;",
+    "reasons": "comparison or assignment; state/history/counter reference",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "GOT_FIRST: begin",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_data_in == TRIGGER_SECOND)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "state <= GOT_SECOND;",
+    "reasons": "comparison or assignment; state/history/counter reference",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "else if (rx_data_in == TRIGGER_FIRST)",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "GOT_SECOND: begin",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "if (rx_data_in == TRIGGER_THIRD) begin",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "state <= ACTIVE;",
+    "reasons": "comparison or assignment; state/history/counter reference",
+    "score": 2,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "trojan_side_effect <= 1'b1;",
+    "reasons": "comparison or assignment; trigger-related naming",
+    "score": 4,
+    "priority": "HIGH"
+  },
+  {
+    "line": "end else if (rx_data_in == TRIGGER_FIRST) begin",
+    "reasons": "conditional/control flow; comparison or assignment; possible observable data/control path; trigger-related naming",
+    "score": 7,
+    "priority": "HIGH"
+  },
+  {
+    "line": "ACTIVE: begin",
+    "reasons": "state/history/counter reference",
+    "score": 1,
+    "priority": "LOW"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_SINGLE_INPUT = 8'd94,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_FIRST = 8'd5,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": "parameter [7:0] TROJAN_FOUR_FOURTH = 8'd21,",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_SINGLE_INPUT(TROJAN_SINGLE_INPUT),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_SINGLE_OUTPUT(TROJAN_SINGLE_OUTPUT),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_TWO_FIRST(TROJAN_TWO_FIRST),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_TWO_SECOND(TROJAN_TWO_SECOND),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_TWO_OUTPUT(TROJAN_TWO_OUTPUT),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_FOUR_FIRST(TROJAN_FOUR_FIRST),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_FOUR_SECOND(TROJAN_FOUR_SECOND),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_FOUR_THIRD(TROJAN_FOUR_THIRD),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_FOUR_FOURTH(TROJAN_FOUR_FOURTH),",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ".TROJAN_FOUR_OUTPUT(TROJAN_FOUR_OUTPUT)",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  },
+  {
+    "line": ") trojan (",
+    "reasons": "trigger-related naming",
+    "score": 3,
+    "priority": "MEDIUM"
+  }
+]
